@@ -289,7 +289,8 @@ namespace FFmpeg.AutoGen.Example
                     AVStream* out_stream;
                     AVStream* in_stream = input_format_context_file->streams[i];
                     AVCodecParameters* in_codecpar = in_stream->codecpar;
-                    if (//in_codecpar->codec_type != FFmpeg.AutoGen.AVMediaType.AVMEDIA_TYPE_AUDIO &&
+                    if (
+                        in_codecpar->codec_type != FFmpeg.AutoGen.AVMediaType.AVMEDIA_TYPE_AUDIO &&
                         in_codecpar->codec_type != FFmpeg.AutoGen.AVMediaType.AVMEDIA_TYPE_VIDEO &&
                         in_codecpar->codec_type != FFmpeg.AutoGen.AVMediaType.AVMEDIA_TYPE_SUBTITLE)
                     {

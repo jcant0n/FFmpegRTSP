@@ -21,21 +21,41 @@ namespace FFmpeg.AutoGen.Example
             //ConfigureHWDecoder(out var deviceType);
         }
 
+        public class SegmentRecordOptions
+        {
+            public bool usebitmapFiles;
+            public int captureSegmentSCount;
+            public int framesPerSegment;
+
+            public AVPixelFormat sourcePixelFormatCodec;
+            public AVHWDeviceType HWDevice;
+
+            public SegmentRecordOptions(  )
+            {
+                HWDevice = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE;
+                usebitmapFiles = false;
+                sourcePixelFormatCodec = AVPixelFormat.AV_PIX_FMT_BGR24;
+                framesPerSegment = 500;
+                captureSegmentSCount = int.MaxValue;
+            }            
+        }
+
         static AVFormatContext* input_format_context_file;
-        public static unsafe void RecordSegmentedRtspStream(string url, bool usebitmapFiles, int captureSegmentSCount, int framesPerSegment, AVHWDeviceType HWDevice)
+        public static unsafe void RecordSegmentedRtspStream(string url, SegmentRecordOptions options)
         {
             VideoStreamDecoder vsd;
             VideoFrameConverter decoderConverter;
 
             //------------------------------------------------------
-            vsd = new VideoStreamDecoder(url, HWDevice);
+
+            vsd = new VideoStreamDecoder(url, options.HWDevice);
             Console.WriteLine($"codec name: {vsd.CodecName}");
             var info = vsd.GetContextInfo();
             info.ToList().ForEach(x => Console.WriteLine($"{x.Key} = {x.Value}"));
             var sourceSize = vsd.FrameSize;
-            var sourcePixelFormat = HWDevice == AVHWDeviceType.AV_HWDEVICE_TYPE_NONE
+            var sourcePixelFormat = options.HWDevice == AVHWDeviceType.AV_HWDEVICE_TYPE_NONE
                 ? vsd.PixelFormat
-                : GetHWPixelFormat(HWDevice);
+                : GetHWPixelFormat(options.HWDevice);
             var destinationSize = sourceSize;
             var destinationPixelFormat = AVPixelFormat.AV_PIX_FMT_BGR24;
 
@@ -44,10 +64,12 @@ namespace FFmpeg.AutoGen.Example
             int videoStreamIndex = 1;
             var timebase = vsd._pFormatContext->streams[videoStreamIndex]->time_base;
             float fps = (timebase.num * 1000) /(float)timebase.den  ;
-            float speedfactor = 1f;
+            //float speedfactor = 1f;
+            float speedfactor = fps;
+            Console.WriteLine("FPS: " + speedfactor);
 
             //----------------------------------------------------------
-            var sourcePixelFormatCodec = AVPixelFormat.AV_PIX_FMT_RGB24;//AVPixelFormat.AV_PIX_FMT_BGR24;
+            var sourcePixelFormatCodec = AVPixelFormat.AV_PIX_FMT_BGR24;//AVPixelFormat.AV_PIX_FMT_BGR24;
             var destinationSizeCodec = sourceSize;
             var destinationPixelFormatCodec = AVPixelFormat.AV_PIX_FMT_YUV420P;
             //----------------------------------------------------------------
@@ -60,7 +82,7 @@ namespace FFmpeg.AutoGen.Example
             var vse = new H264VideoStreamEncoder(null, timebase, destinationSize);
 
             //-----------------------------------------------------------------
-            for (int i = 0; i < captureSegmentSCount; i++)
+            for (int i = 0; i < options.captureSegmentSCount; i++)
             {
                 var framesBuffer = new List<AVFrame>();
                 var bitmaps = new List<Bitmap>();
@@ -69,11 +91,11 @@ namespace FFmpeg.AutoGen.Example
                 //output_format_context = Utils.CreateOuputContextFile(vsd._pCodecContext->codec_id, sourceSize, vsd._pCodecContext->bit_rate, timebase, $"segment_{i:0000}b.mp4");
 
                 Console.WriteLine("Decoding...");
-                Utils.DecodeAllFramesToImages(vsd, decoderConverter, HWDevice, framesBuffer, bitmaps, framesPerSegment, generateFiles: usebitmapFiles);
+                Utils.DecodeAllFramesToImages(vsd, decoderConverter, options.HWDevice, framesBuffer, bitmaps, options.framesPerSegment, generateFiles: options.usebitmapFiles);
                 Console.WriteLine("Encoding...");
                 //Utils.EncodeImagesToH264(vse, encoderConverter, speedfactor, framesBuffer, bitmaps, usebitmapFiles, output_format_context);
 
-                EncodeOuputSegment($"segment_{i:0000}.mp4", vsd, vse, encoderConverter, usebitmapFiles, sourceSize, destinationSize, timebase, speedfactor, sourcePixelFormatCodec, destinationSizeCodec, destinationPixelFormatCodec, framesBuffer.ToList(), bitmaps.ToList());
+                EncodeOuputSegment($"segment_{i:0000}.mp4", vsd, vse, encoderConverter, options.usebitmapFiles, sourceSize, destinationSize, timebase, speedfactor, sourcePixelFormatCodec, destinationSizeCodec, destinationPixelFormatCodec, framesBuffer.ToList(), bitmaps.ToList());
             }
         }
 

@@ -12,10 +12,12 @@ namespace FFmpeg.AutoGen.Example
 {
     internal class SegmentMerger
     {
-        public static unsafe void MergeSegments(string inputFilePatern, string outputFilePath, TimeSpan startTime, TimeSpan recordDuration, AVHWDeviceType HWDevice)
+        public static unsafe void MergeSegments(string inputFilePatern, string outputFilePath, TimeSpan startTime, TimeSpan recordDuration, AVHWDeviceType HWDevice, long defaultFps = 30, bool ignoreAudio = false)
         {
             var frameFiles = Directory.GetFiles(".", inputFilePatern).OrderBy(x => x).ToArray();
             var inputFiles = new List<IntPtr>();
+
+            int videoStreamIndex = 0;
 
             foreach (var fname in frameFiles)
             {
@@ -28,25 +30,53 @@ namespace FFmpeg.AutoGen.Example
                 inputFiles.Add((IntPtr)input_format_context_file);
             }
 
-            var first = (AVFormatContext*)inputFiles.First();
+            var first_input_format_context = (AVFormatContext*)inputFiles.First();
 
-            Size sourceSize = new Size(first->streams[0]->codec->width, first->streams[0]->codec->height);
 
-            var codec = first->streams[0]->codec;
-            AVFormatContext* output_format_context_file = Utils.CreateOuputContextFile(first, codec->codec_id, sourceSize, codec->bit_rate, codec->time_base, outputFilePath);
+            Size sourceSize = new Size(first_input_format_context->streams[0]->codec->width, first_input_format_context->streams[0]->codec->height);
+
+            //var templateInputFileName = "template.mp4";
+            //var template_input_file = Utils.CreateInputContextFromFile(templateInputFileName);
+
+            var codec = first_input_format_context->streams[videoStreamIndex]->codec;
+            AVRational timebase = codec->time_base;
+
+            AVFormatContext* output_format_context_file = Utils.CreateOuputContextFile(null, //first
+                                                                                        codec->codec_id, sourceSize, codec->bit_rate, timebase, outputFilePath);
+
+            var firstNbStreams = first_input_format_context->nb_streams;
+
             TimeSpan endTime = startTime + recordDuration;
-
-            long tick = 0;
+            long[] perStreamTick = new long[firstNbStreams];
+            var perStreamPrevPts = new long?[firstNbStreams];
+            int[] perStreamIndex = new int[firstNbStreams];
 
             TimeSpan accumulatedDuration = default(TimeSpan);
+            int k = 0;
             foreach (var input in inputFiles)
             {
                 var input_format_context = (AVFormatContext*)input;
+                ffmpeg.av_dump_format(input_format_context, 0, frameFiles[k++], 0);
+                // warning hardcoded parameter
 
-                var timebase = input_format_context->streams[0]->time_base;
-                var segmentDuration = TimeSpan.FromSeconds(input_format_context->streams[0]->duration * timebase.num / (float)timebase.den);
-                var framesCount = input_format_context->streams[0]->nb_frames;
-                var fps = framesCount / (float)segmentDuration.TotalSeconds;
+
+                //var timebase = input_format_context->streams[videoStreamIndex]->time_base;
+                var segmentDuration = TimeSpan.FromSeconds(input_format_context->streams[videoStreamIndex]->duration * timebase.num / (float)timebase.den);
+                var framesCount = input_format_context->streams[videoStreamIndex]->nb_frames;
+                double fps = 0;
+
+
+                if (framesCount == 0)
+                {
+                    // example .ts files in resources folder
+                    fps = defaultFps;
+                    framesCount = (long)(fps * segmentDuration.TotalSeconds) * 2;
+                }
+                else
+                {
+                    fps = framesCount / (float)segmentDuration.TotalSeconds;
+                }
+
 
                 if (accumulatedDuration + segmentDuration >= startTime && accumulatedDuration <= endTime)
                 {
@@ -60,44 +90,63 @@ namespace FFmpeg.AutoGen.Example
 
                     AVPacket packet;
                     int ret;
-                    long prevpts = 0;
-                    int i = 0;
+                
+
                     do
                     {
-                        if (i > maxFrames)
-                            break;
-
-                        i++;
-
                         ret = ffmpeg.av_read_frame(input_format_context, &packet);
-                        if (ret != 0)
+
+                        if (ret != 0) // probably final frame
                             break;
 
-                        if (packet.pts < 0)
-                            packet.pts = 0;
+                        int pkgStreamIndex = packet.stream_index;
+                        //int pkgStreamIndex = 0;
 
-                        var duration = packet.pts - prevpts;
+                        if (ignoreAudio && packet.stream_index != videoStreamIndex)
+                            continue;
 
-                        prevpts = packet.pts;
-                        packet.pts = tick;
-                        packet.dts = tick;
+                        perStreamIndex[pkgStreamIndex]++;
+
+                        if (perStreamIndex[pkgStreamIndex] > maxFrames)
+                            continue;
+
 
                         if (skipFrames > 0)
                         {
-                            skipFrames--;
+                            if (pkgStreamIndex == videoStreamIndex)
+                            {
+                                skipFrames--;
+
+                            }
                             continue;
                         }
 
-                        tick += duration;
+                        if (packet.pts < 0)
+                            packet.pts = 0;
+                        
+                        if (perStreamPrevPts[pkgStreamIndex] == null)
+                        {
+                            perStreamPrevPts[pkgStreamIndex] = packet.pts;
+                        }
 
-                        //var in_file_stream = input_format_context->streams[packet.stream_index];
+
+                        var duration = 2*(packet.pts - perStreamPrevPts[pkgStreamIndex].Value);
+
+                        perStreamPrevPts[pkgStreamIndex] = packet.pts;
+                        
+                        packet.pts = perStreamTick[pkgStreamIndex];
+                        packet.dts = perStreamTick[pkgStreamIndex];
+
+                        perStreamTick[pkgStreamIndex] += duration;
+
+                        packet.pos = -1;
                         ret = ffmpeg.av_interleaved_write_frame(output_format_context_file, &packet);
                         ffmpeg.av_packet_unref(&packet);
+
                     }
                     while (ret == 0 || ret == -22);
 
                     Debug.WriteLine("video consumed");
-
                 }
 
                 accumulatedDuration += segmentDuration;
