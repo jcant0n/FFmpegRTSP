@@ -1,8 +1,9 @@
-﻿using System;
+﻿using FFmpeg.AutoGen;
+using System;
 using System.Drawing;
 using System.Runtime.InteropServices;
 
-namespace FFmpeg.AutoGen.Example
+namespace FFmpeg.SegmentAndMerge
 {
     public sealed unsafe class VideoFrameConverter : IDisposable
     {
@@ -40,7 +41,7 @@ namespace FFmpeg.AutoGen.Example
 
             ffmpeg.av_image_fill_arrays(ref _dstData,
                 ref _dstLinesize,
-                (byte*) _convertedFrameBufferPtr,
+                (byte*)_convertedFrameBufferPtr,
                 destinationPixelFormat,
                 destinationSize.Width,
                 destinationSize.Height,

@@ -1,8 +1,9 @@
-﻿using System;
+﻿using FFmpeg.AutoGen;
+using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace FFmpeg.AutoGen.Example
+namespace FFmpeg.SegmentAndMerge
 {
     public class FFmpegBinariesHelper
     {
