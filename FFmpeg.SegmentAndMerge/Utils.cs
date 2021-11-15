@@ -1,4 +1,5 @@
-﻿using System;
+﻿using FFmpeg.AutoGen;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -7,7 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 
-namespace FFmpeg.AutoGen.Example
+namespace FFmpeg.SegmentAndMerge
 {
     public static class Utils
     {
@@ -134,7 +135,7 @@ namespace FFmpeg.AutoGen.Example
                     //frame.pts = frameNumber ;
                     if (ticks > 0)
                         convertedFrame.pts = (long)((f.pts - firstPts) * speedFactor);
-                   
+
                     vse.Encode(convertedFrame, output_format_context, ticks++);
                 }
 
@@ -221,7 +222,7 @@ namespace FFmpeg.AutoGen.Example
             return input_format_context_stream;
         }
 
-        public static unsafe AVFormatContext* CreateOuputContextFile(AVFormatContext* input_format_context_file, AVCodecID videocodec, Size size, long bitrate, AVRational timebase, string out_filename)
+        public static unsafe AVFormatContext* CreateOuputContextFile(AVFormatContext* input_format_context_file, AVCodecID videocodec, Size size, long videoBitrate, AVRational timebase, AVCodecID audioCodecId, long audioBitRate, AVRational audioTimeBase, string out_filename)
         {
             AVFormatContext* output_format_context = null;
 
@@ -230,50 +231,118 @@ namespace FFmpeg.AutoGen.Example
 
             fragmented_mp4_options = 1;
 
-            AVOutputFormat* outFmt = ffmpeg.av_guess_format("mp4", null, null);
 
-            ffmpeg.avformat_alloc_output_context2(&output_format_context, outFmt, null, out_filename);
-            if (output_format_context == null)
-            {
-                Debug.WriteLine("Could not create output context\n");
-                ret = -1;
-                return null;
-            }
-
-            AVCodec* codec;
-            if ((codec = ffmpeg.avcodec_find_encoder(outFmt->video_codec)) == null)
-            {
-                return null;
-            }
-            
             if (input_format_context_file == null)
             {
+                AVOutputFormat* outFmt = ffmpeg.av_guess_format(".ts", null, null);
 
+                ffmpeg.avformat_alloc_output_context2(&output_format_context, outFmt, null, out_filename);
+                if (output_format_context == null)
+                {
+                    Debug.WriteLine("Could not create output context\n");
+                    ret = -1;
+                    return null;
+                }
+
+                AVCodec* codec;
+                if ((codec = ffmpeg.avcodec_find_encoder(outFmt->video_codec)) == null)
+                {
+                    return null;
+                }
+
+                // CREATE VIDEO STREAM
                 AVStream* outStrm = ffmpeg.avformat_new_stream(output_format_context, null);
-            AVCodecContext* cctx;
-            if ((cctx = ffmpeg.avcodec_alloc_context3(codec)) == null)
-            {
-                return null;
+                AVCodecContext* cctx;
+                if ((cctx = ffmpeg.avcodec_alloc_context3(codec)) == null)
+                {
+                    return null;
+                }
+
+                outStrm->codecpar->codec_id = videocodec;
+                outStrm->codecpar->codec_type = AVMediaType.AVMEDIA_TYPE_VIDEO;
+                outStrm->codecpar->width = size.Width;
+                outStrm->codecpar->height = size.Height;
+                outStrm->codecpar->format = (int)AVPixelFormat.AV_PIX_FMT_YUV420P;
+                outStrm->codecpar->bit_rate = videoBitrate;
+                outStrm->time_base = timebase;
+
+                ffmpeg.avcodec_parameters_to_context(cctx, outStrm->codecpar);
+
+                //cctx->max_b_frames = 2;
+                //cctx->gop_size = 12;
+
+                ffmpeg.avcodec_parameters_from_context(outStrm->codecpar, cctx);
+
+                //-----------------------------------------------
+
+                //// CREATE AUDIO STREAM
+                //AVStream* outStrmAudio = ffmpeg.avformat_new_stream(output_format_context, null);
+                //AVCodec* audioCodec;
+                //if ((audioCodec = ffmpeg.avcodec_find_encoder(outFmt->audio_codec)) == null)
+                //{
+                //    return null;
+                //}
+
+                //AVCodecContext* audioCodecContext;
+                //if ((audioCodecContext = ffmpeg.avcodec_alloc_context3(audioCodec)) == null)
+                //{
+                //    return null;
+                //}
+
+
+                //int OUTPUT_CHANNELS = 2;
+
+                //audioCodecContext->bit_rate = audioBitRate;
+                //// audioCodecContext->sample_rate = DEFAULT_AUD_SAMPLE_RATE;
+                ////audioCodecContext->channel_layout = DEFAULT_AUD_CHAN_LAYOUT;
+                //audioCodecContext->channels = 2;
+                ////audioCodecContext->sample_fmt = AV_SAMPLE_FMT_FLTP; // S16 not supported. Must convert
+
+                ////audioCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+
+                //ffmpeg.avcodec_parameters_to_context(audioCodecContext, outStrmAudio->codecpar);
+                //var rc = ffmpeg.avcodec_open2(audioCodecContext, audioCodec, null);
+
+
+                //outStrmAudio->codecpar->codec_id = audioCodecId;
+                //outStrmAudio->codecpar->codec_type = AVMediaType.AVMEDIA_TYPE_AUDIO;
+                //outStrmAudio->codecpar->channel_layout = (ulong)ffmpeg.av_get_default_channel_layout(OUTPUT_CHANNELS);
+                ////outStrmAudio->codecpar->format = AV_SAMPLE_FMT_FLTP
+                //outStrmAudio->codecpar->bit_rate = audioBitRate;
+                //outStrmAudio->time_base = audioTimeBase;
+                //outStrmAudio->codecpar->channels = OUTPUT_CHANNELS;
+
+
+                //int OUTPUT_BIT_RATE = 196000;
+                //outStrmAudio->codecpar->channels = OUTPUT_CHANNELS;
+                //outStrmAudio->codecpar->channel_layout = av_get_default_channel_layout(OUTPUT_CHANNELS);
+                //outStrmAudio->codecpar->sample_rate = sample_rate;
+                //outStrmAudio->codecpar->sample_fmt = sc->audio_avc->sample_fmts[0];
+                //outStrmAudio->codecpar->bit_rate = OUTPUT_BIT_RATE;
+                //outStrmAudio->codecpar->time_base = (AVRational){ 1, sample_rate};
+
+
+                //ffmpeg.avcodec_parameters_to_context(cctx, outStrm->codecpar);
+
+                ////cctx->max_b_frames = 2;
+                ////cctx->gop_size = 12;
+
+                //ffmpeg.avcodec_parameters_from_context(outStrm->codecpar, cctx);
+
+                output_format_context->oformat = outFmt;
+
             }
-
-            outStrm->codecpar->codec_id = videocodec;
-            outStrm->codecpar->codec_type = AVMediaType.AVMEDIA_TYPE_VIDEO;
-            outStrm->codecpar->width = size.Width;
-            outStrm->codecpar->height = size.Height;
-            outStrm->codecpar->format = (int)AVPixelFormat.AV_PIX_FMT_YUV420P;
-            outStrm->codecpar->bit_rate = bitrate;
-            outStrm->time_base = timebase;
-
-            ffmpeg.avcodec_parameters_to_context(cctx, outStrm->codecpar);
-
-            //cctx->max_b_frames = 2;
-            //cctx->gop_size = 12;
-
-            ffmpeg.avcodec_parameters_from_context(outStrm->codecpar, cctx);
-        }
-            //-----------------------------------------------
             else
-        {
+            {
+                ffmpeg.avformat_alloc_output_context2(&output_format_context, null, null, out_filename);
+                if (output_format_context == null)
+                {
+                    Debug.WriteLine("Could not create output context\n");
+                    ret = -1;
+                    return null;
+                }
+
+
                 var number_of_streams = input_format_context_file->nb_streams;
                 var streams_list = (int*)ffmpeg.av_mallocz_array(number_of_streams, (ulong)sizeof(int*));
 
@@ -284,6 +353,7 @@ namespace FFmpeg.AutoGen.Example
                 }
 
                 int stream_index = 0;
+
                 for (long i = 0; i < input_format_context_file->nb_streams; i++)
                 {
                     AVStream* out_stream;
@@ -306,6 +376,8 @@ namespace FFmpeg.AutoGen.Example
                         ret = -1;
                         return null;
                     }
+
+
 
                     ret = ffmpeg.avcodec_parameters_copy(out_stream->codecpar, in_codecpar);
                     if (ret < 0)
@@ -342,7 +414,6 @@ namespace FFmpeg.AutoGen.Example
                 ffmpeg.av_dict_set(&opts, "vcodec", "libx264", 0);
             }
 
-            output_format_context->oformat = outFmt;
 
             // https://ffmpeg.org/doxygen/trunk/group__lavf__encoding.html#ga18b7b10bb5b94c4842de18166bc677cb
             ret = ffmpeg.avformat_write_header(output_format_context, &opts);

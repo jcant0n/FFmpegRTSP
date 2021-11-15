@@ -1,9 +1,10 @@
-﻿using System;
+﻿using FFmpeg.AutoGen;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Runtime.InteropServices;
 
-namespace FFmpeg.AutoGen.Example
+namespace FFmpeg.SegmentAndMerge
 {
     public sealed unsafe class VideoStreamDecoder : IDisposable
     {

@@ -1,8 +1,9 @@
-﻿using System;
+﻿using FFmpeg.AutoGen;
+using System;
 using System.Drawing;
 using System.IO;
 
-namespace FFmpeg.AutoGen.Example
+namespace FFmpeg.SegmentAndMerge
 {
     public sealed unsafe class H264VideoStreamEncoder : IDisposable
     {
@@ -51,7 +52,7 @@ namespace FFmpeg.AutoGen.Example
 
         public void Encode(AVFrame frame, AVFormatContext* output_format_context, int ticks)
         {
-            if (frame.format != (int) _pCodecContext->pix_fmt)
+            if (frame.format != (int)_pCodecContext->pix_fmt)
                 throw new ArgumentException("Invalid pixel format.", nameof(frame));
             if (frame.width != _frameSize.Width) throw new ArgumentException("Invalid width.", nameof(frame));
             if (frame.height != _frameSize.Height) throw new ArgumentException("Invalid height.", nameof(frame));
@@ -89,8 +90,8 @@ namespace FFmpeg.AutoGen.Example
 
                 error.ThrowExceptionIfError();
 
-             //   using var packetStream = new UnmanagedMemoryStream(pPacket->data, pPacket->size);
-               // packetStream.CopyTo(_stream);
+                //   using var packetStream = new UnmanagedMemoryStream(pPacket->data, pPacket->size);
+                // packetStream.CopyTo(_stream);
             }
             finally
             {

@@ -1,15 +1,14 @@
-﻿using System;
+﻿using FFmpeg.AutoGen;
+using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Imaging;
-using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
-namespace FFmpeg.AutoGen.Example
+namespace FFmpeg.SegmentAndMerge
 {
-    internal unsafe class RTSPStreamSegmentRecorder
+    public unsafe class RTSPStreamSegmentRecorder
     {
         public static unsafe void Initialize()
         {
@@ -30,14 +29,14 @@ namespace FFmpeg.AutoGen.Example
             public AVPixelFormat sourcePixelFormatCodec;
             public AVHWDeviceType HWDevice;
 
-            public SegmentRecordOptions(  )
+            public SegmentRecordOptions()
             {
                 HWDevice = AVHWDeviceType.AV_HWDEVICE_TYPE_NONE;
                 usebitmapFiles = false;
                 sourcePixelFormatCodec = AVPixelFormat.AV_PIX_FMT_BGR24;
                 framesPerSegment = 500;
                 captureSegmentSCount = int.MaxValue;
-            }            
+            }
         }
 
         static AVFormatContext* input_format_context_file;
@@ -63,7 +62,7 @@ namespace FFmpeg.AutoGen.Example
             decoderConverter = new VideoFrameConverter(sourceSize, sourcePixelFormat, destinationSize, destinationPixelFormat);
             int videoStreamIndex = 1;
             var timebase = vsd._pFormatContext->streams[videoStreamIndex]->time_base;
-            float fps = (timebase.num * 1000) /(float)timebase.den  ;
+            float fps = (timebase.num * 1000) / (float)timebase.den;
             //float speedfactor = 1f;
             float speedfactor = fps;
             Console.WriteLine("FPS: " + speedfactor);
@@ -76,7 +75,6 @@ namespace FFmpeg.AutoGen.Example
             // workaround we need a template mp4 file
             var inputFileName = "template.mp4";
             input_format_context_file = Utils.CreateInputContextFromFile(inputFileName);
-            //AVFormatContext* input_format_context_stream = Program2.CreateInputRTSPContextStream(decodeUrl);
 
             var encoderConverter = new VideoFrameConverter(sourceSize, sourcePixelFormatCodec, destinationSizeCodec, destinationPixelFormatCodec);
             var vse = new H264VideoStreamEncoder(null, timebase, destinationSize);
@@ -87,9 +85,7 @@ namespace FFmpeg.AutoGen.Example
                 var framesBuffer = new List<AVFrame>();
                 var bitmaps = new List<Bitmap>();
 
-                //
                 //output_format_context = Utils.CreateOuputContextFile(vsd._pCodecContext->codec_id, sourceSize, vsd._pCodecContext->bit_rate, timebase, $"segment_{i:0000}b.mp4");
-
                 Console.WriteLine("Decoding...");
                 Utils.DecodeAllFramesToImages(vsd, decoderConverter, options.HWDevice, framesBuffer, bitmaps, options.framesPerSegment, generateFiles: options.usebitmapFiles);
                 Console.WriteLine("Encoding...");
@@ -105,7 +101,7 @@ namespace FFmpeg.AutoGen.Example
             {
                 lock (vse)
                 {
-                    AVFormatContext* output_format_context = Utils.CreateOuputContextFile(input_format_context_file, vsd._pCodecContext->codec_id, sourceSize, vsd._pCodecContext->bit_rate, timebase, fname);
+                    AVFormatContext* output_format_context = Utils.CreateOuputContextFile(input_format_context_file, vsd._pCodecContext->codec_id, sourceSize, vsd._pCodecContext->bit_rate, timebase, 0, 0, default(AVRational), fname);
 
                     Utils.EncodeImagesToH264(vse, encoderConverter, speedfactor, framesBuffer, bitmaps, usebitmapFiles, output_format_context);
                 }
