@@ -17,7 +17,7 @@ namespace FFmpeg.SegmentAndMerge.Example
             var options = new RTSPStreamSegmentRecorder.SegmentRecordOptions();
             
             // ---------------- FUNCIONALIDAD SEGMENTAR VIDEO ----------------
-            RTSPStreamSegmentRecorder.RecordSegmentedRtspStream(url: url, options);
+            //RTSPStreamSegmentRecorder.RecordSegmentedRtspStream(url: url, options);
 
             // ---------------- FUNCIONALIDAD MERGEAR VIDEO ----------------
             SegmentMerger.MergeSegments(

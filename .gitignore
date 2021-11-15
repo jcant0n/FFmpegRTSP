@@ -2,3 +2,5 @@
 FFmpeg.SegmentAndMerge/bin/Debug
 FFmpeg.SegmentAndMerge/obj
 .vs
+FFmpeg.SegmentAndMerge.Example/bin
+FFmpeg.SegmentAndMerge.Example/obj
